@@ -17,6 +17,9 @@
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
+#include <stdarg.h>
+#include <stdio.h>
+
 #include "main.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -43,6 +46,8 @@ TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim7;
 TIM_HandleTypeDef htim14;
 
+UART_HandleTypeDef huart1;
+
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -53,6 +58,7 @@ static void MX_GPIO_Init(void);
 static void MX_TIM7_Init(void);
 static void MX_TIM14_Init(void);
 static void MX_TIM3_Init(void);
+static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -66,6 +72,46 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		HAL_GPIO_TogglePin(LED_0_GPIO_Port, LED_0_Pin);
 	}
 
+}
+
+char SCIx_RxChar(void)
+{
+	volatile UART_HandleTypeDef *USARTx = &huart1;
+	
+    while((USARTx->Instance->SR & UART_FLAG_RXNE) == RESET);   //wait for Rx Not Empty flag
+    return (uint16_t)(USARTx->Instance->DR & (uint16_t)0x01FF); //read from DR register
+}
+
+
+void SCIx_TxChar(char Data)
+{
+	volatile UART_HandleTypeDef *USARTx = &huart1;
+    
+    USARTx->Instance->DR = (Data & (uint16_t)0x01FF);         //write to DR register
+    while((USARTx->Instance->SR & UART_FLAG_TXE) == RESET);  //wait for Tx Empty flag
+}
+
+
+void SCIx_TxString(char *Str)
+{
+    while(*Str) 
+    {
+        if(*Str == '\n'){
+            SCIx_TxChar('\r');
+        }
+		
+        SCIx_TxChar( *Str++ );
+    }
+}
+
+void TxPrintf(char *Form, ... )
+{
+	static char Buff[128];
+	va_list ArgPtr;
+	va_start(ArgPtr,Form);
+	vsprintf(Buff, Form, ArgPtr);
+    va_end(ArgPtr);
+    SCIx_TxString(Buff);
 }
 
 /* USER CODE END 0 */
@@ -101,19 +147,20 @@ int main(void)
   MX_TIM7_Init();
   MX_TIM14_Init();
   MX_TIM3_Init();
+  MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
 
   HAL_TIM_Base_Start_IT(&htim14);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
 
   /* USER CODE END 2 */
-
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  HAL_GPIO_TogglePin(LED_1_GPIO_Port, LED_1_Pin);
-
+	  //HAL_GPIO_TogglePin(LED_1_GPIO_Port, LED_1_Pin);
+	  
+	  TxPrintf("HELLO\n");
 	  HAL_Delay(1000);
 
     /* USER CODE END WHILE */
@@ -282,6 +329,39 @@ static void MX_TIM14_Init(void)
   /* USER CODE BEGIN TIM14_Init 2 */
 
   /* USER CODE END TIM14_Init 2 */
+
+}
+
+/**
+  * @brief USART1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART1_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART1_Init 0 */
+
+  /* USER CODE END USART1_Init 0 */
+
+  /* USER CODE BEGIN USART1_Init 1 */
+
+  /* USER CODE END USART1_Init 1 */
+  huart1.Instance = USART1;
+  huart1.Init.BaudRate = 115200;
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.StopBits = UART_STOPBITS_1;
+  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART1_Init 2 */
+
+  /* USER CODE END USART1_Init 2 */
 
 }
 
